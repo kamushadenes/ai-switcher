@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
     <channel>
-        <title>CodexSwitcher</title>
-        <link>https://github.com/senoldogann/codex-switcher</link>
-        <description>CodexSwitcher update feed</description>
+        <title>AI Switcher</title>
+        <link>https://github.com/kamushadenes/ai-switcher</link>
+        <description>AI Switcher update feed</description>
         <language>en</language>
 
         <item>

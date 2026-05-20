@@ -3,13 +3,13 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleExecutable</key>
-    <string>CodexSwitcher</string>
+    <string>AISwitcher</string>
     <key>CFBundleIconFile</key>
     <string>AppIcon</string>
     <key>CFBundleIdentifier</key>
-    <string>com.personal.codex-switcher</string>
+    <string>com.personal.ai-switcher</string>
     <key>CFBundleName</key>
-    <string>CodexSwitcher</string>
+    <string>AI Switcher</string>
     <key>CFBundleVersion</key>
     <string>2.2.5</string>
     <key>CFBundleShortVersionString</key>
@@ -23,6 +23,6 @@
     <key>NSUserNotificationsUsageDescription</key>
     <string>Hesap geçişlerini bildirmek için</string>
     <key>NSAppleEventsUsageDescription</key>
-    <string>Terminal'de codex login çalıştırmak için</string>
+    <string>Terminal'de sağlayıcı login komutlarını çalıştırmak için</string>
 </dict>
 </plist>

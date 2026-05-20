@@ -1,0 +1,109 @@
+import Foundation
+
+// MARK: - Auth File Watching
+
+extension AppStore {
+
+    func watchAuthFileForNewLogin() {
+        stopAuthWatcher()
+        // Ensure the parent directory and the file itself exist before opening with O_EVTONLY.
+        // On a fresh machine ~/.codex/auth.json doesn't exist yet, which makes open() return -1
+        // and silently drops the watcher — causing the add-account flow to timeout.
+        let authDir = ProfileManager.codexAuthPath.deletingLastPathComponent()
+        try? FileManager.default.createDirectory(at: authDir, withIntermediateDirectories: true)
+        if !FileManager.default.fileExists(atPath: ProfileManager.codexAuthPath.path) {
+            FileManager.default.createFile(atPath: ProfileManager.codexAuthPath.path, contents: nil)
+        }
+        let fd = open(ProfileManager.codexAuthPath.path, O_EVTONLY)
+        guard fd >= 0 else { return }
+        authWatcherFd = fd
+        let src = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: fd, eventMask: [.write, .rename, .delete], queue: .main)
+        src.setEventHandler { [weak self] in self?.authFileChanged() }
+        src.setCancelHandler { [weak self] in
+            if let self, self.authWatcherFd >= 0 { close(self.authWatcherFd); self.authWatcherFd = -1 }
+        }
+        src.resume()
+        authWatcher = src
+    }
+
+    private func authFileChanged() {
+        if let last = lastAuthWriteDate, Date().timeIntervalSince(last) < 0.5 { return }
+        lastAuthWriteDate = Date()
+
+        if isAddingAccount {
+            guard let data = try? Data(contentsOf: ProfileManager.codexAuthPath),
+                  let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  let tokens = dict["tokens"] as? [String: Any],
+                  let access = tokens["access_token"] as? String else { return }
+            pendingProfileEmail = profileManager.extractEmail(from: access) ?? "bilinmeyen"
+            addingStep = .confirmProfile
+        } else {
+            Task {
+                let report = profileManager.verifyAndRecoverActiveAuthReport(providers: [.codex])
+                if report.result == .unrecoverable {
+                    staleProfileIds.formUnion(report.unrecoverableProfileIds)
+                    sendNotification(
+                        title: L("Auth sorunu", "Auth issue"),
+                        body: L("Auth dosyası bozuldu. Hesapları yeniden giriş yapmanız gerekebilir.", "Auth file corrupted. You may need to re-login to your accounts.")
+                    )
+                }
+            }
+        }
+    }
+
+    func watchAuthFileForRelogin() {
+        stopAuthWatcher()
+        let fd = open(ProfileManager.codexAuthPath.path, O_EVTONLY)
+        guard fd >= 0 else { return }
+        authWatcherFd = fd
+        let src = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: fd, eventMask: [.write, .rename, .delete], queue: .main)
+        src.setEventHandler { [weak self] in self?.reloginAuthChanged() }
+        src.setCancelHandler { [weak self] in
+            if let self, self.authWatcherFd >= 0 { close(self.authWatcherFd); self.authWatcherFd = -1 }
+        }
+        src.resume()
+        authWatcher = src
+    }
+
+    private func reloginAuthChanged() {
+        guard let targetId = reloginTargetId else { return }
+        if let last = lastAuthWriteDate, Date().timeIntervalSince(last) < 0.5 { return }
+        lastAuthWriteDate = Date()
+
+        guard let data = try? Data(contentsOf: ProfileManager.codexAuthPath),
+              let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let tokens = dict["tokens"] as? [String: Any],
+              let accessToken = tokens["access_token"] as? String,
+              let newAccountId = profileManager.extractAccountId(from: accessToken) else { return }
+
+        reloginTargetId = nil
+        addingStep = .idle
+        stopAuthWatcher()
+
+        guard let profile = profiles.first(where: { $0.id == targetId }) else { return }
+
+        if profile.accountId == newAccountId {
+            let dest = profileManager.authPath(for: profile)
+            try? data.write(to: dest, options: .atomic)
+            try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: dest.path)
+            staleProfileIds.remove(targetId)
+            sendNotification(
+                title: L("Giriş yenilendi", "Re-login successful"),
+                body: profile.displayName
+            )
+            Task { await fetchAllRateLimits() }
+        } else {
+            sendNotification(
+                title: L("Hatalı hesap", "Wrong account"),
+                body: L("Farklı bir hesaba giriş yapıldı. Tekrar deneyin.", "A different account was detected. Please try again.")
+            )
+        }
+    }
+
+    func stopAuthWatcher() {
+        authWatcher?.cancel()
+        authWatcher = nil
+    }
+}

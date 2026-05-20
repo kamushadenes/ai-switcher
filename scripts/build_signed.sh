@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# CodexSwitcher — Build, Sign & Notarize
+# AI Switcher — Build, Sign & Notarize
 # Usage: ./scripts/build_signed.sh <issuer-id>
 # Find Issuer ID: App Store Connect → Users and Access → Integrations → App Store Connect API
 
 set -euo pipefail
 
 # ── Config ──────────────────────────────────────────────────────────────────
-APP_NAME="CodexSwitcher"
+APP_NAME="AISwitcher"
 SIGN_IDENTITY="Developer ID Application: SENOL DOGAN (79DZ4AA4DW)"
 KEY_ID="${APPSTORE_KEY_ID:-VMU73YXDVJ}"
 ISSUER_ID="${1:-}"
@@ -81,7 +81,7 @@ cp "$ROOT_DIR/Info.plist" "$APP_BUNDLE/Contents/"
 printf 'APPL????' > "$APP_BUNDLE/Contents/PkgInfo"
 
 # App icon — required for Dock/Finder icon
-ICON_SRC="$ROOT_DIR/Sources/CodexSwitcher/Resources/AppIcon.icns"
+ICON_SRC="$ROOT_DIR/Sources/AISwitcher/Resources/AppIcon.icns"
 if [ -f "$ICON_SRC" ]; then
     cp "$ICON_SRC" "$APP_BUNDLE/Contents/Resources/AppIcon.icns"
 fi
@@ -100,9 +100,9 @@ if [ ! -f "$APP_BUNDLE/Contents/Resources/${APP_NAME}_${APP_NAME}.bundle/Info.pl
 <plist version="1.0">
 <dict>
     <key>CFBundleIdentifier</key>
-    <string>com.personal.codex-switcher.resources</string>
+    <string>com.personal.ai-switcher.resources</string>
     <key>CFBundleName</key>
-    <string>CodexSwitcher_CodexSwitcher</string>
+    <string>AISwitcher_AISwitcher</string>
     <key>CFBundlePackageType</key>
     <string>BNDL</string>
     <key>CFBundleVersion</key>
