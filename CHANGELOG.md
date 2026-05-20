@@ -8,6 +8,8 @@ and this project adheres to
 
 ## [Unreleased]
 
+## [3.0.0] - 2026-05-20
+
 ### Added
 
 - Added first-class Claude.ai OAuth account capture, activation, switching,
@@ -450,7 +452,8 @@ and this project adheres to
 
 - Fixed a file descriptor leak in background polling.
 
-[unreleased]: https://github.com/kamushadenes/ai-switcher/compare/main...HEAD
+[unreleased]: https://github.com/kamushadenes/ai-switcher/compare/v3.0.0...HEAD
+[3.0.0]: https://github.com/kamushadenes/ai-switcher/compare/5fd5294...v3.0.0
 [2.2.5]: https://github.com/kamushadenes/ai-switcher/tree/5fd5294
 [2.2.4]: https://github.com/kamushadenes/ai-switcher/tree/9afc1fb
 [2.2.2]: https://github.com/kamushadenes/ai-switcher/tree/2058117
