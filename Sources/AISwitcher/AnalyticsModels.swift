@@ -1,0 +1,395 @@
+import Foundation
+
+struct AnalyticsUsageRecord: Identifiable, Equatable, Sendable {
+    let timestamp: Date
+    let profileId: UUID
+    let projectPath: String
+    let projectName: String
+    let sessionId: String
+    let model: String
+    let inputTokens: Int
+    let cachedInputTokens: Int
+    let outputTokens: Int
+    let provider: AIProvider
+
+    init(
+        timestamp: Date,
+        profileId: UUID,
+        projectPath: String,
+        projectName: String,
+        sessionId: String,
+        model: String,
+        inputTokens: Int,
+        cachedInputTokens: Int,
+        outputTokens: Int,
+        provider: AIProvider = .codex
+    ) {
+        self.timestamp = timestamp
+        self.profileId = profileId
+        self.projectPath = projectPath
+        self.projectName = projectName
+        self.sessionId = sessionId
+        self.model = model
+        self.inputTokens = inputTokens
+        self.cachedInputTokens = cachedInputTokens
+        self.outputTokens = outputTokens
+        self.provider = provider
+    }
+
+    var id: String {
+        "\(sessionId)-\(timestamp.timeIntervalSince1970)-\(profileId.uuidString)-\(model)"
+    }
+
+    var totalTokens: Int { inputTokens + outputTokens }
+
+    var usage: AccountTokenUsage {
+        AccountTokenUsage(
+            inputTokens: inputTokens,
+            cachedInputTokens: cachedInputTokens,
+            outputTokens: outputTokens,
+            reasoningTokens: 0,
+            sessionCount: 0,
+            modelUsage: [
+                model: ModelTokenUsage(
+                    inputTokens: inputTokens,
+                    cachedInputTokens: cachedInputTokens,
+                    outputTokens: outputTokens,
+                    sessionCount: 0
+                )
+            ]
+        )
+    }
+}
+
+struct AnalyticsSessionTurnRecord: Identifiable, Equatable, Sendable {
+    let promptPreview: String
+    let inputTokens: Int
+    let cachedInputTokens: Int
+    let outputTokens: Int
+    let timestamp: Date
+    let model: String
+
+    var id: String {
+        "\(timestamp.timeIntervalSince1970)-\(model)-\(promptPreview)"
+    }
+
+    var totalTokens: Int { inputTokens + outputTokens }
+
+    var usage: AccountTokenUsage {
+        AccountTokenUsage(
+            inputTokens: inputTokens,
+            cachedInputTokens: cachedInputTokens,
+            outputTokens: outputTokens,
+            reasoningTokens: 0,
+            sessionCount: 0,
+            modelUsage: [
+                model: ModelTokenUsage(
+                    inputTokens: inputTokens,
+                    cachedInputTokens: cachedInputTokens,
+                    outputTokens: outputTokens,
+                    sessionCount: 0
+                )
+            ]
+        )
+    }
+}
+
+struct AnalyticsSessionRecord: Identifiable, Equatable, Sendable {
+    let sessionId: String
+    let projectPath: String
+    let projectName: String
+    let firstPrompt: String
+    let depth: Int
+    let agentRole: String
+    let parentId: String?
+    let turns: [AnalyticsSessionTurnRecord]
+    let provider: AIProvider
+
+    init(
+        sessionId: String,
+        projectPath: String,
+        projectName: String,
+        firstPrompt: String,
+        depth: Int,
+        agentRole: String,
+        parentId: String?,
+        turns: [AnalyticsSessionTurnRecord],
+        provider: AIProvider = .codex
+    ) {
+        self.sessionId = sessionId
+        self.projectPath = projectPath
+        self.projectName = projectName
+        self.firstPrompt = firstPrompt
+        self.depth = depth
+        self.agentRole = agentRole
+        self.parentId = parentId
+        self.turns = turns
+        self.provider = provider
+    }
+
+    var id: String { sessionId }
+    var totalTokens: Int { turns.reduce(0) { $0 + $1.totalTokens } }
+    var lastActivity: Date { turns.map(\.timestamp).max() ?? .distantPast }
+}
+
+enum AnalyticsDataConfidence: String, Codable, Equatable, Sendable {
+    case high
+    case degraded
+    case low
+}
+
+struct AnalyticsSummary: Equatable, Sendable {
+    let totalTokens: Int
+    let estimatedTotalCost: Double
+    let busiestAccountName: String?
+    let busiestAccountTokens: Int
+    let mostExpensiveProjectName: String?
+    let mostExpensiveProjectCost: Double
+    let activeAlertCount: Int
+}
+
+struct AnalyticsTrendPoint: Identifiable, Equatable, Sendable {
+    let start: Date
+    let tokens: Int
+    let cost: Double
+
+    var id: TimeInterval { start.timeIntervalSince1970 }
+}
+
+struct RateLimitAuditSample: Equatable, Sendable {
+    let timestamp: Date
+    let weeklyRemainingPercent: Int?
+    let fiveHourRemainingPercent: Int?
+    let limitReached: Bool
+}
+
+struct AnalyticsBreakdownItem: Identifiable, Equatable, Sendable {
+    let id: String
+    let name: String
+    let tokens: Int
+    let cost: Double
+    let shareOfTokens: Double
+    let shareOfCost: Double
+    let sessionCount: Int
+}
+
+struct AnalyticsLimitPressure: Identifiable, Equatable, Sendable {
+    let profileId: UUID
+    let profileName: String
+    let riskLevel: RiskLevel
+    let weeklyRemainingPercent: Int?
+    let fiveHourRemainingPercent: Int?
+    let estimatedTimeToExhaustion: Date?
+    let staleReason: RateLimitStaleReason?
+    let failureSummary: String?
+    let confidence: AnalyticsDataConfidence
+
+    var id: UUID { profileId }
+}
+
+enum AnalyticsUsageAuditStatus: String, Codable, Equatable, Sendable {
+    case explained
+    case weakAttribution
+    case unattributed
+}
+
+struct AnalyticsUsageAuditEntry: Identifiable, Equatable, Sendable {
+    let profileId: UUID
+    let profileName: String
+    let windowStart: Date
+    let windowEnd: Date
+    let weeklyDropPercent: Int
+    let fiveHourDropPercent: Int
+    let localTokens: Int
+    let localSessionCount: Int
+    let idleWindow: Bool
+    let status: AnalyticsUsageAuditStatus
+
+    var id: String {
+        "\(profileId.uuidString)-\(windowEnd.timeIntervalSince1970)"
+    }
+}
+
+struct AnalyticsUsageAuditPoint: Identifiable, Equatable, Sendable {
+    let timestamp: Date
+    let weeklyDropPercent: Int
+    let fiveHourDropPercent: Int
+    let localTokens: Int
+    let idleWindow: Bool
+    let status: AnalyticsUsageAuditStatus
+
+    var id: TimeInterval { timestamp.timeIntervalSince1970 }
+}
+
+struct AnalyticsUsageAuditSummary: Equatable, Sendable {
+    let explainedCount: Int
+    let weakAttributionCount: Int
+    let unattributedCount: Int
+    let idleDrainCount: Int
+    let totalDrainEvents: Int
+    let latestEventAt: Date?
+
+    static let empty = AnalyticsUsageAuditSummary(
+        explainedCount: 0,
+        weakAttributionCount: 0,
+        unattributedCount: 0,
+        idleDrainCount: 0,
+        totalDrainEvents: 0,
+        latestEventAt: nil
+    )
+}
+
+enum AnalyticsAlertKind: String, Codable, Equatable, Sendable {
+    case costSpike
+    case acceleratedUsage
+    case projectConcentration
+    case limitPressure
+    case staleData
+    case unattributedDrain
+}
+
+enum AnalyticsAlertSeverity: String, Codable, Equatable, Sendable {
+    case warning
+    case critical
+}
+
+struct AnalyticsAlert: Identifiable, Equatable, Sendable {
+    let kind: AnalyticsAlertKind
+    let severity: AnalyticsAlertSeverity
+    let title: String
+    let message: String
+
+    var id: String { "\(kind.rawValue)-\(severity.rawValue)-\(title)" }
+}
+
+struct AnalyticsDataQuality: Equatable, Sendable {
+    let confidence: AnalyticsDataConfidence
+    let staleProfileIds: [UUID]
+    let lastSuccessfulFetch: Date?
+    let message: String?
+}
+
+struct AnalyticsSnapshot: Equatable, Sendable {
+    let generatedAt: Date
+    let range: AnalyticsTimeRange
+    let summary: AnalyticsSummary
+    let tokenTrend: [AnalyticsTrendPoint]
+    let costTrend: [AnalyticsTrendPoint]
+    let dailyUsageByProfile: [UUID: [DailyUsage]]
+    let accountBreakdown: [AnalyticsBreakdownItem]
+    let projectBreakdown: [AnalyticsBreakdownItem]
+    let modelBreakdown: [AnalyticsBreakdownItem]
+    let projects: [ProjectUsage]
+    let sessions: [SessionSummary]
+    let hourlyActivity: [HourlyActivity]
+    let expensiveTurns: [ExpensiveTurn]
+    let workflowSummary: WorkflowSummary
+    let limitPressure: [AnalyticsLimitPressure]
+    let usageAuditSummary: AnalyticsUsageAuditSummary
+    let usageAuditEntries: [AnalyticsUsageAuditEntry]
+    let usageAuditTimeline: [AnalyticsUsageAuditPoint]
+    let reconciliationSummary: ReconciliationSummary
+    let reconciliationEntries: [ReconciliationEntry]
+    let reconciliationPolicy: ReconciliationPolicy
+    let alerts: [AnalyticsAlert]
+    let diagnosticsSummary: DiagnosticsSummary
+    let diagnosticsTimeline: [DiagnosticsEvent]
+    let dataQuality: AnalyticsDataQuality
+
+    init(
+        generatedAt: Date,
+        range: AnalyticsTimeRange,
+        summary: AnalyticsSummary,
+        tokenTrend: [AnalyticsTrendPoint],
+        costTrend: [AnalyticsTrendPoint],
+        dailyUsageByProfile: [UUID: [DailyUsage]],
+        accountBreakdown: [AnalyticsBreakdownItem],
+        projectBreakdown: [AnalyticsBreakdownItem],
+        modelBreakdown: [AnalyticsBreakdownItem],
+        projects: [ProjectUsage],
+        sessions: [SessionSummary],
+        hourlyActivity: [HourlyActivity],
+        expensiveTurns: [ExpensiveTurn],
+        workflowSummary: WorkflowSummary = .empty,
+        limitPressure: [AnalyticsLimitPressure],
+        usageAuditSummary: AnalyticsUsageAuditSummary,
+        usageAuditEntries: [AnalyticsUsageAuditEntry],
+        usageAuditTimeline: [AnalyticsUsageAuditPoint],
+        reconciliationSummary: ReconciliationSummary = .empty,
+        reconciliationEntries: [ReconciliationEntry] = [],
+        reconciliationPolicy: ReconciliationPolicy = ReconciliationPolicy(),
+        alerts: [AnalyticsAlert],
+        diagnosticsSummary: DiagnosticsSummary = .empty,
+        diagnosticsTimeline: [DiagnosticsEvent] = [],
+        dataQuality: AnalyticsDataQuality
+    ) {
+        self.generatedAt = generatedAt
+        self.range = range
+        self.summary = summary
+        self.tokenTrend = tokenTrend
+        self.costTrend = costTrend
+        self.dailyUsageByProfile = dailyUsageByProfile
+        self.accountBreakdown = accountBreakdown
+        self.projectBreakdown = projectBreakdown
+        self.modelBreakdown = modelBreakdown
+        self.projects = projects
+        self.sessions = sessions
+        self.hourlyActivity = hourlyActivity
+        self.expensiveTurns = expensiveTurns
+        self.workflowSummary = workflowSummary
+        self.limitPressure = limitPressure
+        self.usageAuditSummary = usageAuditSummary
+        self.usageAuditEntries = usageAuditEntries
+        self.usageAuditTimeline = usageAuditTimeline
+        self.reconciliationSummary = reconciliationSummary
+        self.reconciliationEntries = reconciliationEntries
+        self.reconciliationPolicy = reconciliationPolicy
+        self.alerts = alerts
+        self.diagnosticsSummary = diagnosticsSummary
+        self.diagnosticsTimeline = diagnosticsTimeline
+        self.dataQuality = dataQuality
+    }
+
+    static func empty(for range: AnalyticsTimeRange, generatedAt: Date = Date()) -> AnalyticsSnapshot {
+        AnalyticsSnapshot(
+            generatedAt: generatedAt,
+            range: range,
+            summary: AnalyticsSummary(
+                totalTokens: 0,
+                estimatedTotalCost: 0,
+                busiestAccountName: nil,
+                busiestAccountTokens: 0,
+                mostExpensiveProjectName: nil,
+                mostExpensiveProjectCost: 0,
+                activeAlertCount: 0
+            ),
+            tokenTrend: [],
+            costTrend: [],
+            dailyUsageByProfile: [:],
+            accountBreakdown: [],
+            projectBreakdown: [],
+            modelBreakdown: [],
+            projects: [],
+            sessions: [],
+            hourlyActivity: [],
+            expensiveTurns: [],
+            workflowSummary: .empty,
+            limitPressure: [],
+            usageAuditSummary: .empty,
+            usageAuditEntries: [],
+            usageAuditTimeline: [],
+            reconciliationSummary: .empty,
+            reconciliationEntries: [],
+            reconciliationPolicy: ReconciliationPolicy(),
+            alerts: [],
+            diagnosticsSummary: .empty,
+            diagnosticsTimeline: [],
+            dataQuality: AnalyticsDataQuality(
+                confidence: .high,
+                staleProfileIds: [],
+                lastSuccessfulFetch: nil,
+                message: nil
+            )
+        )
+    }
+}

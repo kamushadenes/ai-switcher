@@ -6,6 +6,7 @@ DerivedData/
 # Release zips (these go to GitHub Releases, not git repo)
 *.zip
 CodexSwitcher.app/
+AISwitcher.app/
 
 # macOS
 .DS_Store

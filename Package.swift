@@ -2,20 +2,20 @@
 import PackageDescription
 
 let package = Package(
-    name: "CodexSwitcher",
+    name: "AISwitcher",
     platforms: [.macOS(.v26)],
     targets: [
         .executableTarget(
-            name: "CodexSwitcher",
-            path: "Sources/CodexSwitcher",
+            name: "AISwitcher",
+            path: "Sources/AISwitcher",
             resources: [
                 .copy("Resources/codex.icns"),
                 .copy("Resources/AppIcon.icns")
             ]
         ),
         .testTarget(
-            name: "CodexSwitcherTests",
-            dependencies: ["CodexSwitcher"]
+            name: "AISwitcherTests",
+            dependencies: ["AISwitcher"]
         )
     ]
 )

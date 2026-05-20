@@ -12,19 +12,37 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 VERSION="$(/usr/bin/plutil -extract CFBundleShortVersionString raw "$ROOT_DIR/Info.plist")"
 TAG="v${VERSION}"
-ZIP_PATH="$ROOT_DIR/release/CodexSwitcher-v${VERSION}-signed.zip"
+ZIP_PATH="$ROOT_DIR/release/AISwitcher-v${VERSION}-signed.zip"
+
+extract_changelog_section() {
+  local heading="$1"
+  awk -v heading="$heading" '
+    function matches_heading(line, heading) {
+      prefix = "## [" heading "]"
+      return line == prefix || index(line, prefix " - ") == 1
+    }
+    matches_heading($0, heading) { capture=1; next }
+    /^## \[/ && capture { exit }
+    capture { print }
+  ' "$ROOT_DIR/CHANGELOG.md"
+}
+
+is_blank() {
+  [ -z "$(printf "%s" "$1" | tr -d '[:space:]')" ]
+}
 
 extract_changelog() {
-  awk -v version="$VERSION" '
-    $0 == "### v" version { capture=1; next }
-    /^### v/ && capture { exit }
-    capture { print }
-  ' "$ROOT_DIR/README.md"
+  local content
+  content="$(extract_changelog_section "$VERSION")"
+  if is_blank "$content"; then
+    content="$(extract_changelog_section "Unreleased")"
+  fi
+  printf "%s\n" "$content"
 }
 
 CHANGELOG_CONTENT="$(extract_changelog)"
-if [ -z "${CHANGELOG_CONTENT// }" ]; then
-  echo "❌ README changelog entry for ${TAG} not found."
+if is_blank "$CHANGELOG_CONTENT"; then
+  echo "❌ CHANGELOG.md entry for ${TAG} or Unreleased not found."
   exit 1
 fi
 
@@ -51,7 +69,7 @@ fi
 TMP_NOTES="$(mktemp)"
 trap 'rm -f "$TMP_NOTES"' EXIT
 {
-  echo "## CodexSwitcher ${TAG}"
+  echo "## AI Switcher ${TAG}"
   echo
   printf "%s\n" "$CHANGELOG_CONTENT"
   echo
